@@ -1,0 +1,30 @@
+=== RUN   TestInitialElection3A
+Test (3A): initial election ...
+  ... Passed --   3.5  3   52   14976    0
+--- PASS: TestInitialElection3A (3.49s)
+=== RUN   TestReElection3A
+Test (3A): election after network failure ...
+  ... Passed --   5.5  3  118   23298    0
+--- PASS: TestReElection3A (5.50s)
+=== RUN   TestManyElections3A
+Test (3A): multiple elections ...
+  ... Passed --  11.0  7  894  160644    0
+--- PASS: TestManyElections3A (10.98s)
+=== RUN   TestBasicAgree3B
+Test (3B): basic agreement ...
+  ... Passed --   1.4  3   24    5916    3
+--- PASS: TestBasicAgree3B (1.39s)
+=== RUN   TestRPCBytes3B
+Test (3B): RPC byte count ...
+  ... Passed --   3.0  3   60  116730   11
+--- PASS: TestRPCBytes3B (3.02s)
+=== RUN   TestFollowerFailure3B
+Test (3B): test progressive failure of followers ...
+  ... Passed --   4.8  3   99   22091    3
+--- PASS: TestFollowerFailure3B (4.82s)
+=== RUN   TestLeaderFailure3B
+Test (3B): test failure of leaders ...
+  ... Passed --   6.7  3  182   40259    3
+--- PASS: TestLeaderFailure3B (6.68s)
+=== RUN   TestFailAgree3B
+Test (3B): agreement after follower reconnects ...
