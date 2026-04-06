@@ -36,8 +36,8 @@ const (
 	Candidate          = 2
 	Follower           = 3
 	HeartBeatGap       = 125
-	ElectionTimeoutMin = 400
-	ElectionTimeoutMax = 600
+	ElectionTimeoutMin = 300
+	ElectionTimeoutMax = 500
 )
 
 // as each Raft peer becomes aware that successive log entries are
