@@ -4,8 +4,8 @@
 TEST_RUNS=100
 TEST_NAME="." # 如果你想跑全量，可以改成 "."
 LOG_DIR="/Users/kirito/mysrc/logtxt"
-INFO_FILE="$LOG_DIR/copy_info.txt"
-ERROR_FILE="$LOG_DIR/copy_err.txt"
+INFO_FILE="$LOG_DIR/info.txt"
+ERROR_FILE="$LOG_DIR/error.txt"
 
 # 初始化文件
 > $INFO_FILE
