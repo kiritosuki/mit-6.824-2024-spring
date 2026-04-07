@@ -432,7 +432,7 @@ func (rf *Raft) applier() {
 	for !rf.killed() {
 		rf.mu.Lock()
 		// if there is no need to apply entries, just release CPU and wait other goroutine's signal if they commit new entries
-		for rf.lastApplied >= rf.commitIndex && rf.msg == nil {
+		for rf.lastApplied >= rf.commitIndex {
 			rf.applierCond.Wait()
 		}
 		commitIndex := rf.commitIndex
@@ -679,7 +679,6 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		SnapshotTerm:  args.LastIncludedTerm,
 		SnapshotIndex: args.LastIncludedIndex,
 	}
-	rf.applierCond.Signal()
 }
 
 // the tester doesn't halt goroutines created by Raft after each test,
