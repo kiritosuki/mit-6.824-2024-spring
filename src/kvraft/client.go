@@ -1,13 +1,23 @@
 package kvraft
 
-import "6.5840/labrpc"
+import (
+	"time"
+
+	"6.5840/labrpc"
+)
 import "crypto/rand"
 import "math/big"
 
+const (
+	RPCGap = 10
+)
 
 type Clerk struct {
 	servers []*labrpc.ClientEnd
 	// You will have to modify this struct.
+	id       int64
+	version  int
+	leaderId int
 }
 
 func nrand() int64 {
@@ -21,6 +31,9 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	// You'll have to add code here.
+	ck.id = nrand()
+	ck.version = 0
+	ck.leaderId = 0
 	return ck
 }
 
@@ -35,9 +48,30 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
-
-	// You will have to modify this function.
-	return ""
+	ck.version++
+	args := GetArgs{
+		Key:      key,
+		ClientId: ck.id,
+		Version:  ck.version,
+	}
+	reply := GetReply{}
+	ok := false
+	for {
+		ok = ck.servers[ck.leaderId].Call("KVServer.Get", &args, &reply)
+		if ok {
+			switch reply.Err {
+			case OK:
+				return reply.Value
+			case ErrNoKey:
+				return ""
+			case ErrWrongLeader:
+				ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			default:
+				panic("unknown Err type!")
+			}
+		}
+		time.Sleep(RPCGap * time.Millisecond)
+	}
 }
 
 // shared by Put and Append.
@@ -50,6 +84,30 @@ func (ck *Clerk) Get(key string) string {
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	// You will have to modify this function.
+	ck.version++
+	args := PutAppendArgs{
+		Key:      key,
+		Value:    value,
+		OpStr:    op,
+		ClientId: ck.id,
+		Version:  ck.version,
+	}
+	reply := PutAppendReply{}
+	ok := false
+	for {
+		ok = ck.servers[ck.leaderId].Call("KVServer.PutAppend", &args, &reply)
+		if ok {
+			switch reply.Err {
+			case OK:
+				return
+			case ErrWrongLeader:
+				ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
+			default:
+				panic("unknown or invalid Err type!")
+			}
+		}
+		time.Sleep(RPCGap * time.Millisecond)
+	}
 }
 
 func (ck *Clerk) Put(key string, value string) {
