@@ -20,6 +20,8 @@ func DPrintf(format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+const WaitTimeout = 500
+
 type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
@@ -61,6 +63,7 @@ type KVServer struct {
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
+	DPrintf("(Get) [%d] get %s\n", kv.me, args.Key)
 	ch := make(chan result)
 	op := Op{
 		Key:      args.Key,
@@ -79,6 +82,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
+	DPrintf("(PutAppend) [%d] %s %s: %s\n", kv.me, args.OpStr, args.Key, args.Value)
 	ch := make(chan result)
 	op := Op{
 		Key:      args.Key,
@@ -116,15 +120,25 @@ func (kv *KVServer) sendRaft(op Op, ch chan result) {
 	}
 	waitChan := kv.makeWaitChan(term, index)
 	go kv.waitExecute(term, index, ch, waitChan)
+	DPrintf("(sendRaft) [%d] send raft with op %+v\n", kv.me, op)
 }
 
 func (kv *KVServer) waitExecute(term int, index int, ch chan result, waitChan chan result) {
-	stamp := time.Now()
+	DPrintf("(waitExecute) [%d] wait for term: %d, index: %d\n", kv.me, term, index)
 	select {
-	case res := <- waitChan:
+	case <-time.After(WaitTimeout * time.Millisecond):
+		DPrintf("(waitExecute) [%d] timeout, term: %d, index: %d\n", kv.me, term, index)
+		res := result{
+			term:  term,
+			index: index,
+			value: "",
+			err:   ErrWrongLeader,
+		}
 		ch <- res
-		case
+	case res := <-waitChan:
+		ch <- res
 	}
+	kv.deleteWaitChan(term, index)
 }
 
 func (kv *KVServer) makeWaitChan(term int, index int) chan result {
@@ -135,7 +149,11 @@ func (kv *KVServer) makeWaitChan(term int, index int) chan result {
 }
 
 func (kv *KVServer) deleteWaitChan(term int, index int) {
-
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	id := getChanId(term, index)
+	close(kv.waitChans[id])
+	delete(kv.waitChans, id)
 }
 
 // the tester calls Kill() when a KVServer instance won't
@@ -176,8 +194,8 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 
 	kv := new(KVServer)
 	kv.me = me
-	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 	kv.applyCh = make(chan raft.ApplyMsg)
+	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 	kv.dead = int32(0)
 	kv.maxRaftState = maxRaftState
 	// You may need initialization code here.
@@ -194,8 +212,10 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 func (kv *KVServer) executor() {
 	for !kv.killed() {
 		msg := <-kv.applyCh
+		DPrintf("(executor) [%d] receive msg %+v\n", kv.me, msg)
 		kv.mu.Lock()
 		if msg.CommandValid {
+			DPrintf("(executor) [%d] type of command: %T\n", kv.me, msg.Command)
 			op := msg.Command.(Op)
 			term := msg.CommandTerm
 			index := msg.CommandIndex
@@ -214,10 +234,13 @@ func (kv *KVServer) executor() {
 					} else {
 						res.err = ErrNoKey
 					}
+					DPrintf("(executor) [%d] get %s: %s\n", kv.me, op.Key, res.value)
 				case "Put":
 					kv.store[op.Key] = op.Value
+					DPrintf("(executor) [%d] %s %s: %s\n", kv.me, op.OpStr, op.Key, op.Value)
 				case "Append":
 					kv.store[op.Key] += op.Value
+					DPrintf("(executor) [%d] %s %s: %s\n", kv.me, op.OpStr, op.Key, op.Value)
 				default:
 					panic("unknown op type!")
 				}
@@ -235,6 +258,7 @@ func (kv *KVServer) executor() {
 			if ch, ok := kv.waitChans[getChanId(term, index)]; ok {
 				select {
 				case ch <- res:
+					DPrintf("(executor) [%d] send to waitChan %+v\n", kv.me, res)
 				default:
 					panic("channel is full or closed")
 				}

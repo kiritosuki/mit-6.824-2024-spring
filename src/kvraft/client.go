@@ -54,9 +54,9 @@ func (ck *Clerk) Get(key string) string {
 		ClientId: ck.id,
 		Version:  ck.version,
 	}
-	reply := GetReply{}
 	ok := false
 	for {
+		reply := GetReply{}
 		ok = ck.servers[ck.leaderId].Call("KVServer.Get", &args, &reply)
 		if ok {
 			switch reply.Err {
@@ -92,9 +92,9 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		ClientId: ck.id,
 		Version:  ck.version,
 	}
-	reply := PutAppendReply{}
 	ok := false
 	for {
+		reply := PutAppendReply{}
 		ok = ck.servers[ck.leaderId].Call("KVServer.PutAppend", &args, &reply)
 		if ok {
 			switch reply.Err {
