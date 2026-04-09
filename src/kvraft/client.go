@@ -9,7 +9,7 @@ import "crypto/rand"
 import "math/big"
 
 const (
-	RPCGap = 10
+	RPCGap = 100
 )
 
 type Clerk struct {
@@ -54,20 +54,15 @@ func (ck *Clerk) Get(key string) string {
 		ClientId: ck.id,
 		Version:  ck.version,
 	}
-	ok := false
+	leaderId := ck.leaderId
 	for {
-		reply := GetReply{}
-		ok = ck.servers[ck.leaderId].Call("KVServer.Get", &args, &reply)
-		if ok {
-			switch reply.Err {
-			case OK:
+		for i := 0; i < len(ck.servers); i++ {
+			peer := (leaderId + i) % len(ck.servers)
+			reply := GetReply{}
+			ok := ck.servers[peer].Call("KVServer.Get", &args, &reply)
+			if ok && (reply.Err == OK || reply.Err == ErrNoKey) {
+				ck.leaderId = peer
 				return reply.Value
-			case ErrNoKey:
-				return ""
-			case ErrWrongLeader:
-				ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
-			default:
-				panic("unknown Err type!")
 			}
 		}
 		time.Sleep(RPCGap * time.Millisecond)
@@ -92,18 +87,15 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		ClientId: ck.id,
 		Version:  ck.version,
 	}
-	ok := false
+	leaderId := ck.leaderId
 	for {
-		reply := PutAppendReply{}
-		ok = ck.servers[ck.leaderId].Call("KVServer.PutAppend", &args, &reply)
-		if ok {
-			switch reply.Err {
-			case OK:
+		for i := 0; i < len(ck.servers); i++ {
+			peer := (leaderId + i) % len(ck.servers)
+			reply := GetReply{}
+			ok := ck.servers[peer].Call("KVServer.PutAppend", &args, &reply)
+			if ok && reply.Err == OK {
+				ck.leaderId = peer
 				return
-			case ErrWrongLeader:
-				ck.leaderId = (ck.leaderId + 1) % len(ck.servers)
-			default:
-				panic("unknown or invalid Err type!")
 			}
 		}
 		time.Sleep(RPCGap * time.Millisecond)
