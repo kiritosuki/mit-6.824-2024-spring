@@ -1,6 +1,8 @@
 package kvraft
 
 import (
+	"bytes"
+	"fmt"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -40,10 +42,10 @@ type result struct {
 	err   Err
 }
 
-type content struct {
-	version   int
-	lastValue string
-	err       Err
+type Content struct {
+	Version   int
+	LastValue string
+	Err       Err
 }
 
 type KVServer struct {
@@ -55,10 +57,12 @@ type KVServer struct {
 
 	maxRaftState int // snapshot if log grows this big
 
+	// persister
+	persister *raft.Persister
 	// Your definitions here.
 	store     map[string]string
 	waitChans map[int64]chan result
-	cache     map[int64]content
+	cache     map[int64]Content
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
@@ -107,8 +111,8 @@ func (kv *KVServer) sendRaft(op Op, ch chan result) {
 	}
 	hit, con := kv.isCacheHit(op.ClientId, op.Version)
 	if hit {
-		res.value = con.lastValue
-		res.err = con.err
+		res.value = con.LastValue
+		res.err = con.Err
 		ch <- res
 		return
 	}
@@ -196,12 +200,15 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.me = me
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
+	kv.persister = persister
 	kv.dead = int32(0)
 	kv.maxRaftState = maxRaftState
 	// You may need initialization code here.
 	kv.store = make(map[string]string)
 	kv.waitChans = make(map[int64]chan result)
-	kv.cache = make(map[int64]content)
+	kv.cache = make(map[int64]Content)
+	// read persist state
+	kv.decode(kv.persister.ReadSnapshot())
 	// background running goroutine
 	go kv.executor()
 	return kv
@@ -244,14 +251,14 @@ func (kv *KVServer) executor() {
 				default:
 					panic("unknown op type!")
 				}
-				kv.cache[op.ClientId] = content{
-					version:   op.Version,
-					lastValue: res.value,
-					err:       res.err,
+				kv.cache[op.ClientId] = Content{
+					Version:   op.Version,
+					LastValue: res.value,
+					Err:       res.err,
 				}
 			} else {
-				res.value = con.lastValue
-				res.err = con.err
+				res.value = con.LastValue
+				res.err = con.Err
 			}
 			// why not full: each RPC request use the only channel, ensured by term and index
 			// why not closed: before close, goroutine try to get lock
@@ -263,6 +270,11 @@ func (kv *KVServer) executor() {
 					panic("channel is full or closed")
 				}
 			}
+			if kv.maxRaftState != -1 && kv.persister.RaftStateSize() > kv.maxRaftState {
+				kv.rf.Snapshot(index, kv.encode())
+			}
+		} else if msg.SnapshotValid {
+			kv.decode(msg.Snapshot)
 		}
 		kv.mu.Unlock()
 	}
@@ -274,10 +286,35 @@ func getChanId(term int, index int) int64 {
 	return id
 }
 
-func (kv *KVServer) isCacheHit(clientId int64, version int) (bool, content) {
+func (kv *KVServer) isCacheHit(clientId int64, version int) (bool, Content) {
 	c, ok := kv.cache[clientId]
-	if ok && c.version >= version {
+	if ok && c.Version >= version {
 		return true, c
 	}
-	return false, content{}
+	return false, Content{}
+}
+
+func (kv *KVServer) encode() []byte {
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	e.Encode(kv.cache)
+	e.Encode(kv.store)
+	return w.Bytes()
+}
+
+func (kv *KVServer) decode(data []byte) {
+	if data == nil || len(data) < 1 {
+		return
+	}
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var cache map[int64]Content
+	var store map[string]string
+	if d.Decode(&cache) != nil ||
+		d.Decode(&store) != nil {
+		fmt.Println("[error] can't read persist state")
+	} else {
+		kv.cache = cache
+		kv.store = store
+	}
 }

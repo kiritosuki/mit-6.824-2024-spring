@@ -2,10 +2,10 @@
 
 # 配置项
 TEST_RUNS=50
-TEST_NAME="4A" # 如果你想跑全量，可以改成 "."
+TEST_NAME="." # 如果你想跑全量，可以改成 "."
 LOG_DIR="/Users/kirito/mysrc/logtxt"
-INFO_FILE="$LOG_DIR/lab4A.txt"
-ERROR_FILE="$LOG_DIR/lab4A_err.txt"
+INFO_FILE="$LOG_DIR/lab4.txt"
+ERROR_FILE="$LOG_DIR/lab4_err.txt"
 
 # 初始化文件
 > $INFO_FILE
