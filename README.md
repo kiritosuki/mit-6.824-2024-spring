@@ -104,3 +104,7 @@ go test
 ## 说明
 
 这个项目主要用于记录我完成 MIT 6.824 / 6.5840 分布式系统实验的过程。实现以通过课程测试为目标，重点覆盖 Raft 共识、复制状态机和基于 Raft 的容错键值服务。
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
