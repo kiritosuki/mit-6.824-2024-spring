@@ -61,6 +61,13 @@ src/raft
 src/kvraft
 ```
 
+## 文档
+
+为了更好地理解这个项目，我编写了两份详细的文档：
+
+- **[INTERVIEW_QA.md](./INTERVIEW_QA.md)** —— 面试问答文档，以面试官和候选人对答的形式，深入讲解 Raft 共识算法和 KV Raft 的实现细节。涵盖：分布式共识原理、Leader 选举、日志复制、Commit 机制、持久化、快照、线性一致性、幂等性、代码亮点与难点等。
+- **[BABY_GUIDE.md](./BABY_GUIDE.md)** —— 代码逐行讲解指南，对 `src/raft` 和 `src/kvraft` 中的每一段实现代码进行详细解释，包括数据结构设计、函数逻辑、并发控制、边界情况处理等。
+
 ## 项目结构
 
 ```text
