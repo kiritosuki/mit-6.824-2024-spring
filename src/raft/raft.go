@@ -266,7 +266,7 @@ func (rf *Raft) sendRequestVote(server int, args *RequestVoteArgs, reply *Reques
 
 func (rf *Raft) doRequestVote(server int, args *RequestVoteArgs, voteCount *int32) {
 	reply := &RequestVoteReply{}
-	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
+	ok := rf.sendRequestVote(server, args, reply)
 	if !ok {
 		return
 	}
